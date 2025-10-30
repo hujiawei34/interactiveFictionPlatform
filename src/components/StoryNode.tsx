@@ -22,20 +22,33 @@ export function StoryNode({
   isDragging,
 }: StoryNodeProps) {
   const [isDraggingLocal, setIsDraggingLocal] = useState(false);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
+  const [nodeStartPos, setNodeStartPos] = useState<{ x: number; y: number } | null>(null);
+  const [hasMovedSignificantly, setHasMovedSignificantly] = useState(false);
   const nodeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!isDraggingLocal) return;
+    if (!isDraggingLocal || !dragStart || !nodeStartPos) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      const x = e.clientX - dragOffset.x;
-      const y = e.clientY - dragOffset.y;
-      onDrag(node.id, x, y);
+      const deltaX = e.clientX - dragStart.x;
+      const deltaY = e.clientY - dragStart.y;
+
+      // 计算移动距离，如果超过5px阈值，标记为有意义的拖动
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+      if (distance > 5 && !hasMovedSignificantly) {
+        setHasMovedSignificantly(true);
+      }
+
+      const newX = nodeStartPos.x + deltaX;
+      const newY = nodeStartPos.y + deltaY;
+      onDrag(node.id, newX, newY);
     };
 
     const handleMouseUp = () => {
       setIsDraggingLocal(false);
+      setDragStart(null);
+      setNodeStartPos(null);
       onDragEnd();
     };
 
@@ -46,19 +59,16 @@ export function StoryNode({
       document.removeEventListener("mousemove", handleMouseMove);
       document.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [isDraggingLocal, dragOffset, node.id, onDrag, onDragEnd]);
+  }, [isDraggingLocal, dragStart, nodeStartPos, hasMovedSignificantly, node.id, onDrag, onDragEnd]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return; // Only left click
-    
-    const rect = nodeRef.current?.getBoundingClientRect();
-    if (rect) {
-      const offsetX = e.clientX - rect.left;
-      const offsetY = e.clientY - rect.top;
-      setDragOffset({ x: offsetX, y: offsetY });
-      setIsDraggingLocal(true);
-      onDragStart(node.id);
-    }
+
+    setDragStart({ x: e.clientX, y: e.clientY });
+    setNodeStartPos({ x: node.position.x, y: node.position.y });
+    setIsDraggingLocal(true);
+    setHasMovedSignificantly(false); // 重置拖动标记
+    onDragStart(node.id);
     e.stopPropagation();
   };
 
@@ -81,6 +91,10 @@ export function StoryNode({
         }`}
         onClick={(e) => {
           e.stopPropagation();
+          // 如果发生了有意义的拖动（移动距离 > 5px），忽略点击事件
+          if (hasMovedSignificantly) {
+            return;
+          }
           onClick(node);
         }}
       >
