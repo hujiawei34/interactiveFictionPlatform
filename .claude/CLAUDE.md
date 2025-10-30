@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-The Interactive Fiction Platform is a React-based web application for creating and playing interactive fiction stories. Users can visually design story narratives with branching choices, export/import story data, and preview their stories in a reader mode.
+The Interactive Fiction Platform is a React-based web application for creating and playing interactive fiction stories. Users can visually design story narratives with branching choices, export/import story data, and preview their stories in a reader mode. The platform now includes cloud-based story persistence with Supabase authentication.
 
 ## Tech Stack
 
@@ -12,9 +12,9 @@ The Interactive Fiction Platform is a React-based web application for creating a
 - **Build Tool**: Vite 6.3.5
 - **Styling**: Tailwind CSS
 - **UI Components**: Radix UI (comprehensive component library)
-- **Forms**: React Hook Form
 - **Icons**: Lucide React
 - **State Management**: Local component state (React useState)
+- **Backend/Database**: Supabase (PostgreSQL + Auth + Edge Functions)
 - **Charts**: Recharts
 
 ## Development Commands
@@ -22,25 +22,46 @@ The Interactive Fiction Platform is a React-based web application for creating a
 ```bash
 npm i              # Install dependencies
 npm run dev        # Start development server (opens http://localhost:3000)
-npm run build      # Build for production (outputs to build/ directory)
+npm run build      # Build for production (outputs to dist/ directory)
 ```
 
 ## Architecture Overview
 
+### Authentication & Cloud Persistence (Supabase)
+
+The application integrates Supabase for user authentication and cloud-based story storage. Key files:
+
+**`src/utils/supabase/client.ts`** - Initializes singleton Supabase client
+**`src/utils/supabase/info.tsx`** - Contains `projectId` and `publicAnonKey` configuration
+
+**`src/components/AuthPage.tsx`** - Handles login/signup:
+- Login form with email/password
+- Signup form with name, email, password (minimum 6 chars)
+- Calls Supabase Edge Function endpoint for signup: `/functions/v1/make-server-c931b1bb/signup`
+
+**`src/components/StoryHistory.tsx`** - Displays saved stories:
+- Lists all stories with metadata (title, description, scene count, updated date)
+- Click to load a story
+- Delete button with confirmation dialog
+
+**App.tsx** - Enhanced with:
+- Session persistence on mount
+- Login/signup/logout handlers
+- Save story to Supabase: POST `/functions/v1/make-server-c931b1bb/stories`
+- Load story history: GET `/functions/v1/make-server-c931b1bb/stories`
+- Load individual story: GET `/functions/v1/make-server-c931b1bb/stories/{storyId}`
+- Delete story: DELETE `/functions/v1/make-server-c931b1bb/stories/{storyId}`
+- User state includes `id`, `email`, `name`
+
 ### Core Data Structure
 
 The application uses a story graph model defined in `src/types/story.ts`:
-- **Story**: Root container with metadata (id, title, description) and array of StoryNodes
+- **Story**: Root container with metadata (id, title, description, createdAt, updatedAt) and array of StoryNodes
 - **StoryNode**: Individual scenes with text content, choices, position coordinates, and flags (isStart, isEnd)
 - **Choice**: Links from one node to another with display text and target node reference
+- **StoryMeta**: Lightweight story metadata (id, title, description, createdAt, updatedAt, nodeCount) for history display
 
-### Main Components
-
-**App.tsx** - Root component that manages:
-- Global story state (title, description, nodes)
-- Mode switching between editor and preview modes
-- Import/export functionality (JSON-based)
-- Story metadata dialog
+### Editor Components
 
 **StoryEditor.tsx** - Graph canvas editor that provides:
 - Visual node layout on a 2000x2000px canvas
@@ -63,10 +84,11 @@ The application uses a story graph model defined in `src/types/story.ts`:
 
 ### UI Component Library
 
-The `src/components/ui/` directory contains Radix UI component wrappers with Tailwind styling. These are pre-built and commonly imported throughout the application. Key ones used:
+The `src/components/ui/` directory contains Radix UI component wrappers with Tailwind styling. Pre-built components include:
 - Button, Card, Dialog, Input, Textarea
 - Select, Checkbox, Switch
-- Tooltip, AlertDialog
+- Tooltip, AlertDialog, Tabs, Drawer
+- Accordion, Popover, Dropdown Menu
 
 ## Key Implementation Details
 
@@ -78,13 +100,17 @@ The `src/components/ui/` directory contains Radix UI component wrappers with Tai
 
 **Position Tracking**: All nodes store their canvas position (x, y coordinates) for persistence across edits.
 
-## Common Development Tasks
+**Session Management**: Supabase session is checked on app mount. If valid session found, user is logged in automatically. Access token passed to all API requests via `Authorization: Bearer` header.
 
-### Adding a new feature to nodes
-Edit `src/types/story.ts` to extend the StoryNode interface, then update StoryEditor.tsx and NodeEditor.tsx to handle the new property.
+**Error Handling**: API errors display alert dialogs with error messages. Network requests include try-catch blocks with proper error logging.
 
-### Styling modifications
-Use Tailwind CSS classes in components. Global styles are in `src/index.css` and `src/styles/globals.css`.
+## Supabase Edge Functions Integration
 
-### Import path aliases
-The Vite config defines `@` as an alias to `src/` for cleaner imports: `import { Button } from '@/components/ui/button'`
+The backend is implemented as Supabase Edge Functions at `/functions/v1/make-server-c931b1bb/`. Key endpoints:
+- **POST /signup** - User registration (email, password, name)
+- **POST /stories** - Save a new story or update existing
+- **GET /stories** - List all stories for logged-in user
+- **GET /stories/{storyId}** - Fetch complete story data
+- **DELETE /stories/{storyId}** - Delete a story
+
+All endpoints require `Authorization: Bearer {accessToken}` header (except signup).
