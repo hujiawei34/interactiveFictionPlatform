@@ -31,7 +31,7 @@ function App() {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authLoading, setAuthLoading] = useState(false);
-  const [checkingSession, setCheckingSession] = useState(true);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const [story, setStory] = useState<Story>({
     id: `story-${Date.now()}`,
@@ -51,7 +51,7 @@ function App() {
 
   const supabase = createClient();
 
-  // Check for existing session on mount
+  // Check for existing session on mount (background, no blocking)
   useEffect(() => {
     checkSession();
   }, []);
@@ -71,8 +71,6 @@ function App() {
       }
     } catch (error) {
       console.error("Session check error:", error);
-    } finally {
-      setCheckingSession(false);
     }
   };
 
@@ -95,6 +93,7 @@ function App() {
           email: data.user.email || "",
           name: data.user.user_metadata?.name || "User",
         });
+        setShowAuthModal(false);
       }
     } catch (error: any) {
       console.error("Login error:", error);
@@ -129,6 +128,7 @@ function App() {
 
       // Auto-login after signup
       await handleLogin(email, password);
+      setShowAuthModal(false);
     } catch (error: any) {
       console.error("Signup error:", error);
       setAuthError(error.message || "Failed to create account");
@@ -152,7 +152,11 @@ function App() {
   };
 
   const handleSaveStory = async () => {
-    if (!accessToken) return;
+    if (!accessToken) {
+      alert("Please login to save your story to the cloud.");
+      setShowAuthModal(true);
+      return;
+    }
 
     setSaveLoading(true);
     try {
@@ -184,7 +188,11 @@ function App() {
   };
 
   const handleLoadHistory = async () => {
-    if (!accessToken) return;
+    if (!accessToken) {
+      alert("Please login to view your story history.");
+      setShowAuthModal(true);
+      return;
+    }
 
     setShowHistory(true);
     setHistoryLoading(true);
@@ -332,27 +340,6 @@ function App() {
     input.click();
   };
 
-  // Loading state while checking session
-  if (checkingSession) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-slate-50">
-        <Loader2 className="w-8 h-8 animate-spin text-slate-400" />
-      </div>
-    );
-  }
-
-  // Show auth page if not logged in
-  if (!user) {
-    return (
-      <AuthPage
-        onLogin={handleLogin}
-        onSignup={handleSignup}
-        error={authError}
-        loading={authLoading}
-      />
-    );
-  }
-
   return (
     <div className="h-screen flex flex-col bg-white">
       {/* Header */}
@@ -367,10 +354,12 @@ function App() {
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-sm text-slate-600 mr-2">
-              Hello, {user.name}
-            </span>
-            
+            {user && (
+              <span className="text-sm text-slate-600 mr-2">
+                Hello, {user.name}
+              </span>
+            )}
+
             <Button variant="outline" size="sm" onClick={handleNewStory}>
               New Story
             </Button>
@@ -380,6 +369,7 @@ function App() {
               size="sm"
               onClick={handleSaveStory}
               disabled={saveLoading}
+              title={!user ? "Login to save to cloud" : ""}
             >
               {saveLoading ? (
                 <>
@@ -394,7 +384,12 @@ function App() {
               )}
             </Button>
 
-            <Button variant="outline" size="sm" onClick={handleLoadHistory}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleLoadHistory}
+              title={!user ? "Login to view history" : ""}
+            >
               <History className="w-4 h-4 mr-2" />
               History
             </Button>
@@ -418,10 +413,20 @@ function App() {
               Import
             </Button>
 
-            <Button variant="outline" size="sm" onClick={handleLogout}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
-            </Button>
+            {user ? (
+              <Button variant="outline" size="sm" onClick={handleLogout}>
+                <LogOut className="w-4 h-4 mr-2" />
+                Logout
+              </Button>
+            ) : (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => setShowAuthModal(true)}
+              >
+                Login
+              </Button>
+            )}
           </div>
         </div>
       </header>
@@ -489,6 +494,26 @@ function App() {
           onClose={() => setShowHistory(false)}
           loading={historyLoading}
         />
+      )}
+
+      {/* Auth Modal */}
+      {showAuthModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <AuthPage
+              onLogin={handleLogin}
+              onSignup={handleSignup}
+              error={authError}
+              loading={authLoading}
+            />
+            <button
+              onClick={() => setShowAuthModal(false)}
+              className="block mx-auto mt-4 text-sm text-slate-600 hover:text-slate-900"
+            >
+              Continue as guest
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

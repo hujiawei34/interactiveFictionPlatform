@@ -31,7 +31,7 @@ export function AuthPage({ onLogin, onSignup, error, loading }: AuthPageProps) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 p-4">
+    <div className="flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-2">
@@ -41,7 +41,7 @@ export function AuthPage({ onLogin, onSignup, error, loading }: AuthPageProps) {
           <p className="text-slate-600">Create and share branching stories</p>
         </div>
 
-        <Card className="p-6">
+        <Card className="p-6 bg-white">
           <Tabs defaultValue="login" className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="login">Login</TabsTrigger>
