@@ -74,7 +74,7 @@ export function StoryNode({
       onMouseDown={handleMouseDown}
     >
       <Card
-        className={`p-4 shadow-lg hover:shadow-xl transition-shadow ${
+        className={`select-none p-4 shadow-lg hover:shadow-xl transition-shadow ${
           isDragging ? "opacity-70" : ""
         } ${node.isStart ? "border-green-500 border-2" : ""} ${
           node.isEnd ? "border-red-500 border-2" : ""
