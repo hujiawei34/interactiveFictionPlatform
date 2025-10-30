@@ -56,5 +56,14 @@
     server: {
       port: 3000,
       open: true,
+      watch: {
+        usePolling: true,
+        interval: 500,
+      },
+      hmr: {
+        protocol: 'ws',
+        host: 'localhost',
+        port: 5173,
+      }
     },
   });
